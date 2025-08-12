@@ -1,151 +1,104 @@
-#include <SDL3/SDL.h>
+#include "game.h"
 #include <stdio.h>
-#include <math.h>  
 
 int main() {
+    Game game;
     SDL_Init(SDL_INIT_VIDEO);
 
-    SDL_Window* window = SDL_CreateWindow("ball",1800,990,0);
-    SDL_Renderer* renderer = SDL_CreateRenderer(window,NULL);
+    game.window = SDL_CreateWindow("ball", 1800, 990, 0);
+    game.renderer = SDL_CreateRenderer(game.window, NULL);
 
-    SDL_FRect player1 = {100.0f,50.0f,50.0f,100.0f};
-    SDL_FRect player2 = {490.0f,50.0f,50.0f,100.0f};
-    SDL_FRect ball = {295.0f,240.0f,10.0f,10.0f};
+    game.player1 = (SDL_FRect){100.0f, 50.0f, 50.0f, 100.0f};
+    game.player2 = (SDL_FRect){490.0f, 50.0f, 50.0f, 100.0f};
+    game.ball = (SDL_FRect){295.0f, 240.0f, 10.0f, 10.0f};
 
     SDL_Event event;
     int running = 1;
-    int ballHeldby = 1;
 
     float ballVelx = 0, ballVely = 0;
     float ballSpeed = 5.0f;
-
-    typedef enum {
-        OWNER_NONE,
-        OWNER_PLAYER1,
-        OWNER_PLAYER2
-    }  BallOwner;
-
-    typedef enum{
-        SIDE_LEFT,
-        SIDE_RIGHT
-    } AttachSide;
+    int pickupCooldown = 0;
 
     AttachSide attachSide;
-
     BallOwner ballOwner = OWNER_NONE;
 
-    int pickupCooldown = 0;
-    while(running){
-        while(SDL_PollEvent(&event)){
-            if(event.type == SDL_EVENT_QUIT){
+    while (running) {
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EVENT_QUIT) {
                 running = 0;
-            }else if(event.type == SDL_EVENT_KEY_DOWN){
-                        SDL_Keycode key = event.key.key;
-
-               if(key == SDLK_SPACE){
-                        ballOwner = (ballOwner == OWNER_PLAYER1)? OWNER_PLAYER2:OWNER_PLAYER1;
-                    }
-               if(key == SDLK_F){
-                        ballOwner = (ballOwner == OWNER_PLAYER2)? OWNER_PLAYER1:OWNER_PLAYER2;
-                    }
-                }
-                 
             }
-                const bool* keys = SDL_GetKeyboardState(NULL);
-
-
-        if (keys[SDL_SCANCODE_LEFT])  player1.x -= 5;
-        if (keys[SDL_SCANCODE_RIGHT]) player1.x += 5;
-        if (keys[SDL_SCANCODE_UP])    player1.y -= 5;
-        if (keys[SDL_SCANCODE_DOWN])  player1.y += 5;
-
-        if (keys[SDL_SCANCODE_A]) player2.x -= 5;
-        if (keys[SDL_SCANCODE_D]) player2.x += 5;
-        if (keys[SDL_SCANCODE_W]) player2.y -= 5;
-        if (keys[SDL_SCANCODE_S]) player2.y += 5;
-
-
-         if (ballOwner == OWNER_PLAYER1 && keys[SDL_SCANCODE_SPACE]) {
-         ballVelx = (attachSide == SIDE_RIGHT) ? ballSpeed : -ballSpeed;
-        ballVely = 0;
-        pickupCooldown = 120; 
-        ballOwner = OWNER_NONE;
-        
-    }
-    if (ballOwner == OWNER_PLAYER2 && keys[SDL_SCANCODE_F]) {
-        ballVelx = (attachSide == SIDE_LEFT) ? -ballSpeed : ballSpeed;
-         ballVely = 0;
-         pickupCooldown = 120;
-        ballOwner = OWNER_NONE;
-       
-    }
-
-    // Move ball if free
-    if (ballOwner == OWNER_NONE) {
-        ball.x += ballVelx;
-        ball.y += ballVely;
-
-        ballVelx *= 0.98f;
-        ballVely *= 0.98f;
-        if (fabs(ballVelx) < 0.1f && fabs(ballVely) < 0.1f) {
-            ballVelx = ballVely = 0;
         }
-    } else {
-        // Stick ball to player
-        if (ballOwner == OWNER_PLAYER1) {
-              if (attachSide == SIDE_RIGHT) {
-        ball.x = player1.x + player1.w;
-    } else {
-        ball.x = player1.x - ball.w;
-    }
-            ball.y = player1.y + player1.h/2 - ball.h/2;
-        } else if (ballOwner == OWNER_PLAYER2) {
-            if (attachSide == SIDE_LEFT) {
-        ball.x = player2.x - ball.w;
-    } else {
-        ball.x = player2.x + player2.w;
-    }
-            ball.y = player2.y + player2.h/2 - ball.h/2;
+
+        const bool* keys = SDL_GetKeyboardState(NULL);
+
+        // Player 1 movement
+        if (keys[SDL_SCANCODE_LEFT])  game.player1.x -= 5;
+        if (keys[SDL_SCANCODE_RIGHT]) game.player1.x += 5;
+        if (keys[SDL_SCANCODE_UP])    game.player1.y -= 5;
+        if (keys[SDL_SCANCODE_DOWN])  game.player1.y += 5;
+
+        // Player 2 movement
+        if (keys[SDL_SCANCODE_A]) game.player2.x -= 5;
+        if (keys[SDL_SCANCODE_D]) game.player2.x += 5;
+        if (keys[SDL_SCANCODE_W]) game.player2.y -= 5;
+        if (keys[SDL_SCANCODE_S]) game.player2.y += 5;
+
+        // Throw mechanics
+        if (ballOwner == OWNER_PLAYER1 && keys[SDL_SCANCODE_SPACE]) {
+            ballVelx = (attachSide == SIDE_RIGHT) ? ballSpeed : -ballSpeed;
+            ballVely = 0;
+            pickupCooldown = 0;
+            ballOwner = OWNER_NONE;
         }
-    }
-
-    // Collision (only if ball free and cooldown over)
-    if (ballOwner == OWNER_NONE && pickupCooldown <= 0) {
-        if (SDL_HasRectIntersectionFloat(&player1, &ball)) {
-              if (pickupCooldown <= 0) {
-        ballOwner = OWNER_PLAYER1;
-        attachSide = (ball.x + ball.w/2 < player1.x + player1.w/2) ? SIDE_LEFT : SIDE_RIGHT;
-    }
-        } else if (SDL_HasRectIntersectionFloat(&player2, &ball)) {
-               if (pickupCooldown <= 0) {
-        ballOwner = OWNER_PLAYER2;
-        attachSide = (ball.x + ball.w/2 < player2.x + player2.w/2) ? SIDE_LEFT : SIDE_RIGHT;
-    }
+        if (ballOwner == OWNER_PLAYER2 && keys[SDL_SCANCODE_F]) {
+            ballVelx = (attachSide == SIDE_LEFT) ? -ballSpeed : ballSpeed;
+            ballVely = 0;
+            pickupCooldown = 0;
+            ballOwner = OWNER_NONE;
         }
+
+        // Move ball if free
+        if (ballOwner == OWNER_NONE) {
+            game.ball.x += ballVelx;
+            game.ball.y += ballVely;
+
+            ballVelx *= 0.98f;
+            ballVely *= 0.98f;
+            if (fabsf(ballVelx) < 0.1f && fabsf(ballVely) < 0.1f) {
+                ballVelx = ballVely = 0;
+            }
+        } else {
+            if (ballOwner == OWNER_PLAYER1) {
+                game.ball.x = (attachSide == SIDE_RIGHT)
+                    ? game.player1.x + game.player1.w
+                    : game.player1.x - game.ball.w;
+                game.ball.y = game.player1.y + game.player1.h / 2 - game.ball.h / 2;
+            } else if (ballOwner == OWNER_PLAYER2) {
+                game.ball.x = (attachSide == SIDE_LEFT)
+                    ? game.player2.x - game.ball.w
+                    : game.player2.x + game.player2.w;
+                game.ball.y = game.player2.y + game.player2.h / 2 - game.ball.h / 2;
+            }
+        }
+
+        // Collision detection
+        if (ballOwner == OWNER_NONE && pickupCooldown <= 0) {
+            if (SDL_HasRectIntersectionFloat(&game.player1, &game.ball)) {
+                ballOwner = OWNER_PLAYER1;
+                attachSide = (game.ball.x + game.ball.w / 2 < game.player1.x + game.player1.w / 2)
+                    ? SIDE_LEFT : SIDE_RIGHT;
+            } else if (SDL_HasRectIntersectionFloat(&game.player2, &game.ball)) {
+                ballOwner = OWNER_PLAYER2;
+                attachSide = (game.ball.x + game.ball.w / 2 < game.player2.x + game.player2.w / 2)
+                    ? SIDE_LEFT : SIDE_RIGHT;
+            }
+        }
+
+        if (pickupCooldown > 0) pickupCooldown--;
+
+        render(&game);
     }
 
-    if (pickupCooldown > 0) pickupCooldown--;
-
-    SDL_SetRenderDrawColor(renderer,0,0,0,255);
-    SDL_RenderClear(renderer);
-
-    SDL_SetRenderDrawColor(renderer,212,115,78,255); //orange
-    SDL_RenderFillRect(renderer,&player1);
-
-    SDL_SetRenderDrawColor(renderer,50,205,218,235); //turquoise
-    SDL_RenderFillRect(renderer,&player2);
-    
-    SDL_SetRenderDrawColor(renderer,255,255,255,255);
-    SDL_RenderFillRect(renderer,&ball);
-
-    SDL_RenderPresent(renderer);
-    SDL_Delay(17);
-
-    }
-
-
-    SDL_DestroyRenderer(renderer);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
+    cleanup(&game);
     return 0;
 }

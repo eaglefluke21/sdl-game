@@ -1,1 +1,3 @@
 gcc main.c -I./include -L./lib -lSDL3 -o game.exe
+
+gcc main.c game.c -I./include -L./lib -lSDL3 -o game.exe
