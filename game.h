@@ -20,9 +20,10 @@ typedef struct {
     SDL_Window* window;
     SDL_Renderer* renderer;
     SDL_FRect player1, player2, ball;
+    int screenW, screenH;
 } Game;
 
-
+void update(Game* game,float deltaTime,float *ballVelx, float *ballVely);
 void render(Game* game);
 void cleanup(Game* game);
 

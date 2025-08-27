@@ -1,35 +1,57 @@
 #include "game.h"
 #include <stdio.h>
+#include "render_utils.h"
 
 int main() {
-    Game game;
+    
     SDL_Init(SDL_INIT_VIDEO);
+    Game game;
 
     game.window = SDL_CreateWindow("ball", 1800, 990, 0);
     game.renderer = SDL_CreateRenderer(game.window, NULL);
 
+    SDL_GetWindowSize(game.window, &game.screenW, &game.screenH);
+
+    //player and ball
     game.player1 = (SDL_FRect){100.0f, 50.0f, 50.0f, 100.0f};
     game.player2 = (SDL_FRect){490.0f, 50.0f, 50.0f, 100.0f};
     game.ball = (SDL_FRect){295.0f, 240.0f, 10.0f, 10.0f};
-
-    SDL_Event event;
-    int running = 1;
-
-    float ballVelx = 0, ballVely = 0;
-    float ballSpeed = 5.0f;
-    int pickupCooldown = 0;
+  
 
     AttachSide attachSide;
     BallOwner ballOwner = OWNER_NONE;
 
+
+    SDL_Event event;
+
+    int running = 1;
+    float ballVelx = 0, ballVely = 0;
+    float ballSpeed = 5.0f;
+    int pickupCooldown = 0;
+
+    Uint64 lastTick = SDL_GetTicks();
+
     while (running) {
-        while (SDL_PollEvent(&event)) {
+
+        // maintaning fps issue with help of time
+        Uint64 currentTick = SDL_GetTicks();
+        float deltaTime = (currentTick - lastTick) / 1000.0f; // ms → seconds
+        lastTick = currentTick;
+    
+        //dynamically identify boundary size
+        if(event.type == SDL_EVENT_WINDOW_RESIZED){
+            SDL_GetWindowSize(game.window,&game.screenW,&game.screenH);
+        }
+ 
+        // Quit Game
+    while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = 0;
-            }
-        }
+                   }
+                }
 
-        const bool* keys = SDL_GetKeyboardState(NULL);
+    // Keyboard Input
+    const bool* keys = SDL_GetKeyboardState(NULL);
 
         // Player 1 movement
         if (keys[SDL_SCANCODE_LEFT])  game.player1.x -= 5;
@@ -50,6 +72,7 @@ int main() {
             pickupCooldown = 0;
             ballOwner = OWNER_NONE;
         }
+
         if (ballOwner == OWNER_PLAYER2 && keys[SDL_SCANCODE_F]) {
             ballVelx = (attachSide == SIDE_LEFT) ? -ballSpeed : ballSpeed;
             ballVely = 0;
@@ -64,10 +87,13 @@ int main() {
 
             ballVelx *= 0.98f;
             ballVely *= 0.98f;
+
             if (fabsf(ballVelx) < 0.1f && fabsf(ballVely) < 0.1f) {
                 ballVelx = ballVely = 0;
             }
+
         } else {
+
             if (ballOwner == OWNER_PLAYER1) {
                 game.ball.x = (attachSide == SIDE_RIGHT)
                     ? game.player1.x + game.player1.w
@@ -79,10 +105,12 @@ int main() {
                     : game.player2.x + game.player2.w;
                 game.ball.y = game.player2.y + game.player2.h / 2 - game.ball.h / 2;
             }
+
         }
 
         // Collision detection
         if (ballOwner == OWNER_NONE && pickupCooldown <= 0) {
+
             if (SDL_HasRectIntersectionFloat(&game.player1, &game.ball)) {
                 ballOwner = OWNER_PLAYER1;
                 attachSide = (game.ball.x + game.ball.w / 2 < game.player1.x + game.player1.w / 2)
@@ -92,10 +120,12 @@ int main() {
                 attachSide = (game.ball.x + game.ball.w / 2 < game.player2.x + game.player2.w / 2)
                     ? SIDE_LEFT : SIDE_RIGHT;
             }
+
         }
 
         if (pickupCooldown > 0) pickupCooldown--;
 
+        update(&game, deltaTime , &ballVelx ,&ballVely);
         render(&game);
     }
 
