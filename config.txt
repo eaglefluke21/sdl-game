@@ -1,0 +1,4 @@
+player1_x = 200
+player2_x = 500
+player1_y = 400
+player2_y = 400

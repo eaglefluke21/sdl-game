@@ -3,28 +3,28 @@
 
 #include <SDL3/SDL.h>
 #include <stdbool.h>
-#include <math.h> 
-
-typedef enum {
-    OWNER_NONE,
-    OWNER_PLAYER1,
-    OWNER_PLAYER2
-} BallOwner;
-
-typedef enum {
-    SIDE_LEFT,
-    SIDE_RIGHT
-} AttachSide;
+#include "entities.h"
 
 typedef struct {
-    SDL_Window* window;
+    SDL_Window*   window;
     SDL_Renderer* renderer;
-    SDL_FRect player1, player2, ball;
     int screenW, screenH;
+
+    Player player1;
+    Player player2;
+    Ball   ball;
+
+    int running;
 } Game;
 
-void update(Game* game,float deltaTime,float *ballVelx, float *ballVely);
-void render(Game* game);
-void cleanup(Game* game);
+typedef struct{
+    int p1x,p2x,p1y,p2y;
+} Player_positions;
+
+
+
+void game_init(Game* g ,Player_positions* p);
+void game_run(Game* g);
+void game_cleanup(Game* g);
 
 #endif
